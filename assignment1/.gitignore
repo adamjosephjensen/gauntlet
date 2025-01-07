@@ -1,0 +1,15 @@
+# Python
+venv/
+__pycache__/*
+
+local.db
+instance/local.db
+
+# macOS
+.DS_Store
+
+# Environment files
+.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
