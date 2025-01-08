@@ -155,8 +155,10 @@ def verify_token():
 
 if __name__ == '__main__':
     # Create tables if not existing
+    print("Creating tables")
     with app.app_context():
         db.create_all()
+        print("Tables created")
 
     # Run
     app.run(host='0.0.0.0', port=5000, debug=True)
