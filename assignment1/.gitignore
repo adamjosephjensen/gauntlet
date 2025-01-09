@@ -2,11 +2,11 @@
 venv/
 __pycache__/*
 
-local.db
-instance/local.db
+.db
+instance/*
 
 # macOS
-.DS_Store
+*.DS_Store
 
 # Environment files
 .env
