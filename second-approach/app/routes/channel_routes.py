@@ -1,7 +1,7 @@
 # app/routes/channel_routes.py
 
 from flask import Blueprint, request, jsonify
-from ..models import db, Channel
+from ..models import db, Channel, User
 
 channel_bp = Blueprint('channel_bp', __name__)
 
@@ -11,6 +11,10 @@ def create_channel():
     Create a new channel. Expects JSON with { "name": "someName", "creator_id": 1, "is_dm": false }
     """
     data = request.get_json()
+    creator = User.query.get(data.get('creator_id'))
+    if not creator:
+        return jsonify({'error': 'Creator not found'}), 400
+
     new_channel = Channel(
         name=data.get('name'),
         creator_id=data.get('creator_id'),
