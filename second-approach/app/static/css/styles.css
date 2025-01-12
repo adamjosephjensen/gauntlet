@@ -1,0 +1,49 @@
+body {
+  display: flex;
+  margin: 0;
+  font-family: sans-serif;
+}
+
+#sidebar {
+  width: 250px;
+  background-color: #f0f0f0;
+  border-right: 1px solid #ccc;
+  padding: 1rem;
+}
+
+#main {
+  flex: 1;
+  padding: 1rem;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+.channel-item {
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+  padding: 0.3rem;
+  border: 1px solid #ddd;
+}
+
+.channel-item:hover {
+  background-color: #eee;
+}
+
+#channel-form,
+#message-form {
+  margin-bottom: 1rem;
+}
+
+.error {
+  color: red;
+  font-weight: bold;
+}
+
+.message-item {
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+

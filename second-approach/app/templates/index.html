@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Chat Genius (Milestone 1)</title>
+  <!-- Link to your stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+  <div id="sidebar">
+    <h2>Channels</h2>
+    <div id="channel-list"></div>
+
+    <form id="channel-form">
+      <input type="text" id="channel-name" placeholder="New channel name" required />
+      <input type="hidden" id="channel-creator-id" value="1" />
+      <button type="submit">Create Channel</button>
+    </form>
+    <div id="channel-error" class="error"></div>
+  </div>
+
+  <div id="main">
+    <h2 id="channel-title">Select a channel</h2>
+    <div id="message-list"></div>
+
+    <form id="message-form" style="display: none;">
+      <input type="hidden" id="message-user-id" value="1" />
+      <textarea id="message-content" rows="2" cols="50" placeholder="Type a message..."></textarea>
+      <button type="submit">Send</button>
+    </form>
+    <div id="message-error" class="error"></div>
+  </div>
+
+  <!-- Link your JS file -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+

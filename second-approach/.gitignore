@@ -1,0 +1,6 @@
+venv/
+instance/
+app/__pycache__
+routes/__pycache__
+tests/__pycache__
+app/routes/__pycache__/
