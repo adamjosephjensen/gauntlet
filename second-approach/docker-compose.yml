@@ -16,6 +16,8 @@ services:
   web:
     build: .
     container_name: chat_genius_web
+    volumes:
+      - .:/app
     depends_on:
       - db
     ports:

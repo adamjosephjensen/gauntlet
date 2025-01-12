@@ -4,3 +4,9 @@ app/__pycache__
 routes/__pycache__
 tests/__pycache__
 app/routes/__pycache__/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.git
