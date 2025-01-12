@@ -1,7 +1,7 @@
 # app/main.py
 # Entry point for local development
 
-from . import create_app, db
+from . import create_app, db, socketio
 from .models import User
 
 app = create_app()
@@ -17,5 +17,5 @@ if __name__ == "__main__":
             db.session.add(test_user)
             db.session.commit()
 
-    app.run(debug=True, host="0.0.0.0")
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)
 
