@@ -1,5 +1,4 @@
-version: "3.9"
-
+# docker-compose.yml
 services:
   db:
     image: postgres:15
@@ -16,15 +15,14 @@ services:
   web:
     build: .
     container_name: chat_genius_web
-    volumes:
-      - .:/app
     depends_on:
       - db
     ports:
       - "5000:5000"
     environment:
       - DATABASE_URL=postgresql://chatgenius:chatgeniuspass@db:5432/chatgenius
-    command: ["python", "-m", "app.main"]
+      - FLASK_ENV=production
+    command: gunicorn --worker-class eventlet --bind 0.0.0.0:5000 app.main:app
 
 volumes:
   pgdata:
