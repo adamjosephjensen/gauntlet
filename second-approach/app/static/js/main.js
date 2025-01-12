@@ -1,10 +1,47 @@
 let selectedChannelId = null;
+let socket = null;
+
+function socketJoinChannel(channelId, userId = 1) {
+  socket.emit("join_channel", { user_id: userId, channel_id: channelId });
+  console.log(`[CLIENT] Emitted join_channel for channel ${channelId}`);
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   initChannelList();
   initChannelForm();
   initMessageForm();
+
+  socket = io();
+  socket.on('connect', () => {
+      console.log("Socket connected:", socket.id);
+  });
+  
+  socket.on("user_joined", (data) => {
+    console.log("[CLIENT] user_joined event:", data);
+  });
+
+  socket.on("new_message", (msg) => {
+    console.log("[CLIENT] new_message received:", msg);
+    
+    // Only update if we're in the correct channel
+    if (selectedChannelId === msg.channel_id) {
+      const messageListEl = document.getElementById("message-list");
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "message-item";
+      msgDiv.innerHTML = `
+        <p><strong>User ${msg.user_id}:</strong> ${msg.content}</p>
+        <p><small>${msg.created_at}</small></p>
+      `;
+      messageListEl.appendChild(msgDiv);
+      
+      // Auto-scroll to the bottom of the message list
+      messageListEl.scrollTop = messageListEl.scrollHeight;
+    }
+  });
+
 });
+
+
 
 // ========== Channel List ==========
 
@@ -20,6 +57,7 @@ function initChannelList() {
         channelDiv.innerText = ch.name || `Channel #${ch.id}`;
         channelDiv.addEventListener("click", () => {
           selectChannel(ch.id, ch.name);
+          socketJoinChannel(ch.id);
         });
         channelListEl.appendChild(channelDiv);
       });
