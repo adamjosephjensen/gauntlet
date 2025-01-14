@@ -7,6 +7,40 @@ from .. import db, socketio
 
 from ..models import Channel, ChannelMembership, Message
 
+def create_and_broadcast_message(user_id, channel_id, content):
+    """Centralized function for message creation and broadcasting"""
+    try:
+        # Validate channel exists
+        channel = Channel.query.get(channel_id)
+        if not channel:
+            return None, f"Channel {channel_id} not found."
+
+        # Create message in DB
+        new_msg = Message(
+            user_id=user_id,
+            channel_id=channel_id,
+            content=content
+        )
+        db.session.add(new_msg)
+        db.session.commit()
+
+        # Prepare message data
+        message_data = {
+            "id": new_msg.id,
+            "channel_id": channel_id,
+            "user_id": user_id,
+            "content": content,
+            "created_at": new_msg.created_at.isoformat()
+        }
+        
+        # Broadcast to the specific channel room
+        socketio.emit('new_message', message_data, to=str(channel_id))
+        
+        return new_msg, None
+    except Exception as e:
+        print(f"[SERVER] Error in create_and_broadcast_message: {str(e)}")
+        return None, str(e)
+
 @socketio.on('connect')
 def handle_connect():
     print(f"[SERVER] Client connected: {request.sid}")
@@ -21,19 +55,11 @@ def handle_join_channel(data):
     user_id = data.get("user_id")
     channel_id = data.get("channel_id")
 
-    # Check if channel and membership exist
+    # Check if channel exists
     channel = Channel.query.get(channel_id)
     if not channel:
         emit("error", {"message": f"Channel {channel_id} not found."})
-        print(f"Join Channel Error 1: Channel {channel_id} not found.")
-        return
-
-    membership = ChannelMembership.query.filter_by(
-        user_id=user_id, channel_id=channel_id
-    ).first()
-    if not membership:
-        emit("error", {"message": "User not a member of this channel."})
-        print(f"Error: User is not a member of channel {channel_id}.")
+        print(f"Join Channel Error: Channel {channel_id} not found.")
         return
 
     # Join a named room for that channel
@@ -49,50 +75,27 @@ def handle_join_channel(data):
 @socketio.on('send_message')
 def handle_send_message(data):
     print("========= HANDLE SEND MESSAGE CALLED =========")
-    print(f"[SERVER] Message received - {data}")
     
-    try:
-        # Add input validation
-        if not all(key in data for key in ['user_id', 'channel_id', 'content']):
-            print("[SERVER] Missing required fields")
-            emit("error", {"message": "Missing required fields"})
-            return
-            
-        if not data.get("content").strip():
-            print("[SERVER] Empty content")
-            emit("error", {"message": "Message content cannot be empty"})
-            return
-
-        user_id = data.get("user_id")
-        channel_id = data.get("channel_id")
-        content = data.get("content")
-
-        print(f"[SERVER] Processing message: user={user_id}, channel={channel_id}, content={content}")
-
-        # Create message in DB
-        new_msg = Message(
-            user_id=user_id,
-            channel_id=channel_id,
-            content=content
-        )
-        db.session.add(new_msg)
-        db.session.commit()
-        print(f"[SERVER] Message saved to DB: {new_msg.id}")
-
-        # Prepare message data
-        message_data = {
-            "id": new_msg.id,
-            "channel_id": channel_id,
-            "user_id": user_id,
-            "content": content,
-            "created_at": new_msg.created_at.isoformat()
-        }
+    # Validate input
+    if not all(key in data for key in ['user_id', 'channel_id', 'content']):
+        print("[SERVER] Missing required fields")
+        emit("error", {"message": "Missing required fields"})
+        return
         
-        print(f"[SERVER] Emitting message: {message_data}")
-        socketio.emit('new_message', message_data)
-        print("========= HANDLE SEND MESSAGE COMPLETED =========")
-        
-        return {"status": "success"}
-    except Exception as e:
-        print(f"[SERVER] Error: {str(e)}")
-        return {"status": "error", "message": str(e)}
+    if not data.get("content").strip():
+        print("[SERVER] Empty content")
+        emit("error", {"message": "Message content cannot be empty"})
+        return
+
+    msg, error = create_and_broadcast_message(
+        data.get("user_id"),
+        data.get("channel_id"),
+        data.get("content")
+    )
+    
+    if error:
+        print(f"[SERVER] Error sending message: {error}")
+        emit("error", {"message": error})
+    else:
+        print(f"[SERVER] Message sent successfully: {msg.id}")
+        emit("message_sent", {"message_id": msg.id})

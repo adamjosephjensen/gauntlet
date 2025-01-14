@@ -16,6 +16,20 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Socket connected:", socket.id);
   });
   
+  socket.on("error", (data) => {
+    console.log("[CLIENT] Socket error:", data);
+    showChannelError(data.message);
+    // Reset channel selection on error
+    selectedChannelId = null;
+    document.getElementById("message-form").style.display = "none";
+  });
+
+  socket.on("joined_channel_ok", (data) => {
+    console.log("[CLIENT] Successfully joined channel:", data);
+    // Only show message form after successfully joining
+    document.getElementById("message-form").style.display = "block";
+  });
+  
   socket.on("user_joined", (data) => {
     console.log("[CLIENT] user_joined event:", data);
   });
