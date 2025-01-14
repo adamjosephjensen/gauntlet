@@ -41,6 +41,35 @@ def create_and_broadcast_message(user_id, channel_id, content):
         print(f"[SERVER] Error in create_and_broadcast_message: {str(e)}")
         return None, str(e)
 
+def create_and_broadcast_channel(name, creator_id, is_dm=False):
+    """Centralized function for channel creation and broadcasting"""
+    try:
+        # Create channel in DB
+        new_channel = Channel(
+            name=name,
+            creator_id=creator_id,
+            is_dm=is_dm
+        )
+        db.session.add(new_channel)
+        db.session.commit()
+
+        # Prepare channel data
+        channel_data = {
+            "id": new_channel.id,
+            "name": name,
+            "creator_id": creator_id,
+            "is_dm": is_dm,
+            "created_at": new_channel.created_at.isoformat()
+        }
+        
+        # Broadcast to all connected clients
+        socketio.emit('new_channel', channel_data)
+        
+        return new_channel, None
+    except Exception as e:
+        print(f"[SERVER] Error in create_and_broadcast_channel: {str(e)}")
+        return None, str(e)
+
 @socketio.on('connect')
 def handle_connect():
     print(f"[SERVER] Client connected: {request.sid}")

@@ -53,6 +53,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  socket.on("new_channel", (channel) => {
+    console.log("[CLIENT] new_channel received:", channel);
+    
+    // Add the new channel to the channel list
+    const channelListEl = document.getElementById("channel-list");
+    const channelDiv = document.createElement("div");
+    channelDiv.className = "channel-item";
+    channelDiv.setAttribute("data-channel-id", channel.id);
+    channelDiv.innerHTML = `
+      <button onclick="selectChannel(${channel.id}, '${channel.name}')">${channel.name}</button>
+    `;
+    channelListEl.appendChild(channelDiv);
+  });
+
 });
 
 
@@ -146,6 +160,41 @@ function loadChannelMessages(channelId) {
 
 function initMessageForm() {
   const form = document.getElementById("message-form");
+  const messageInput = document.getElementById("message-content");
+
+  // Handle keydown events for Return and Shift+Return
+  messageInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      // Shift+Return: Insert newline
+      if (event.shiftKey) {
+        return; // Let the default behavior handle newline insertion
+      }
+      
+      // Return: Send message
+      event.preventDefault();
+      const content = messageInput.value.trim();
+      
+      // Don't send empty messages
+      if (!content) {
+        return;
+      }
+
+      const userId = document.getElementById("message-user-id").value;
+
+      socket.emit('send_message', {
+        user_id: parseInt(userId, 10),
+        channel_id: selectedChannelId,
+        content: content
+      });
+      console.log('[CLIENT] Emitted send_message:', content);
+
+      // Clear the form and any error message
+      showMessageError("");
+      form.reset();
+    }
+  });
+
+  // Keep the regular form submit handler as fallback for the Send button
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (!selectedChannelId) {
@@ -154,9 +203,12 @@ function initMessageForm() {
     }
 
     const userId = document.getElementById("message-user-id").value;
-    const content = document.getElementById("message-content").value.trim();
+    const content = messageInput.value.trim();
 
-    // Emit the message via socket instead of HTTP POST
+    if (!content) {
+      return;
+    }
+
     socket.emit('send_message', {
       user_id: parseInt(userId, 10),
       channel_id: selectedChannelId,
@@ -164,7 +216,6 @@ function initMessageForm() {
     });
     console.log('[CLIENT] Emitted send_message:', content);
 
-    // Clear the form
     showMessageError("");
     form.reset();
   });

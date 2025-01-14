@@ -6,6 +6,7 @@ import logging
 from .. import db
 
 from ..models import Channel, User
+from ..services.websocket import create_and_broadcast_channel
 
 channel_bp = Blueprint('channel_bp', __name__)
 
@@ -29,13 +30,15 @@ def create_channel():
         return jsonify({'error': 'Creator not found'}), 400
 
     try:
-        new_channel = Channel(
+        new_channel, error = create_and_broadcast_channel(
             name=data.get('name'),
             creator_id=data.get('creator_id'),
             is_dm=data.get('is_dm', False)
         )
-        db.session.add(new_channel)
-        db.session.commit()
+        
+        if error:
+            return jsonify({'error': error}), 400
+            
         return jsonify({"message": "Channel created", "channel_id": new_channel.id}), 201
     except Exception as e:
         current_app.logger.error(f"Error creating channel: {str(e)}")

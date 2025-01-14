@@ -27,8 +27,11 @@ services:
       - "5000:5000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
-      - FLASK_ENV=production
-    command: gunicorn --worker-class eventlet --bind 0.0.0.0:5000 app.main:app
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - ./app:/app/app
+    command: gunicorn --worker-class eventlet --reload --bind 0.0.0.0:5000 app.main:app
 
 volumes:
   pgdata:
