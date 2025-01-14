@@ -31,7 +31,8 @@
     <div id="message-error" class="error"></div>
   </div>
 
-  <!-- Link your JS file -->
+  <!-- Add Socket.IO client library before your main.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

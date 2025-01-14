@@ -3,20 +3,24 @@
 from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO
+
 import os
 
-from .models import db
-
-from .routes.channel_routes import channel_bp
-from .routes.message_routes import message_bp
-
-from .services.websocket import init_socket_handlers
-
-# note: we do not initialize db = SQLAlchemy here because that is done in models.py
-# if you tried to do it here and import it over there then you'd get circular imports it seems
-socketio = SocketIO()
+# 1. Create extensions first. NEVER import routes outside of create_app.
+# otherwise you'll get circular imports.
+db = SQLAlchemy()
+# Configure SocketIO with proper settings
+socketio = SocketIO(
+    cors_allowed_origins="*",  # For development. Be more specific in production
+    async_mode='eventlet',     # Use eventlet as async mode
+    logger=True,              # Enable logging for debugging
+    engineio_logger=True      # Enable Engine.IO logging
+)
 
 def create_app():
+    """
+    Create and configure the Flask app. Import routes inside this function to avoid circular imports.
+    """
     app = Flask(__name__)
 
     # Basic config
@@ -25,21 +29,32 @@ def create_app():
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    # 2. Initialize extensions
     db.init_app(app)
     socketio.init_app(app)
 
-    # Register Blueprints (import routes)
+    # 3. Import websocket handlers AFTER socketio is initialized
+    # IMPORTANT PYTHON/FLASK GOTCHA:
+    # a. Decorators execute when modules are imported
+    # b. @socketio.on() decorators need initialized socketio
+    # c. Therefore: import modules with socket handlers AFTER socketio.init_app()
+    # d. Yes, this is a "side effect import" - you import but never use the module directly!
+    from .services import websocket  # Magic import that registers @socketio.on handlers
+
+    # 4. Import routes INSIDE create_app to avoid circular imports.
+    from .routes.channel_routes import channel_bp
+    from .routes.message_routes import message_bp
+    
+    # 5. Register blueprints
     app.register_blueprint(channel_bp, url_prefix='/api')
     app.register_blueprint(message_bp, url_prefix='/api')
 
-    # Define routes
+    # 6. Define routes
     @app.route('/')
-    def index():
+    def index(): # type: ignore
         return render_template('index.html')
     
-
     with app.app_context():
-        init_socket_handlers(socketio)
         db.create_all()
 
     return app

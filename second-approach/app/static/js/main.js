@@ -142,23 +142,17 @@ function initMessageForm() {
     const userId = document.getElementById("message-user-id").value;
     const content = document.getElementById("message-content").value.trim();
 
-    fetch(`/api/channels/${selectedChannelId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: parseInt(userId, 10),
-        content,
-      }),
-    })
-      .then(handleFetchErrors)
-      .then(() => {
-        showMessageError("");
-        form.reset();
-        loadChannelMessages(selectedChannelId);
-      })
-      .catch((err) => {
-        showMessageError(err.message);
-      });
+    // Emit the message via socket instead of HTTP POST
+    socket.emit('send_message', {
+      user_id: parseInt(userId, 10),
+      channel_id: selectedChannelId,
+      content: content
+    });
+    console.log('[CLIENT] Emitted send_message:', content);
+
+    // Clear the form
+    showMessageError("");
+    form.reset();
   });
 }
 

@@ -1,10 +1,8 @@
 # app/models.py
 
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
 
-# We define db for the project and import it from this file as-needed elsewhere
-db = SQLAlchemy()
+from . import db
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -14,7 +12,6 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     messages = db.relationship('Message', backref='author', lazy='dynamic')
-    # membership = relationship() # if you want to backref from ChannelMembership
 
     def __repr__(self):
         return f'<User {self.id} - {self.email}>'

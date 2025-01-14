@@ -1,7 +1,10 @@
 # app/routes/message_routes.py
 
 from flask import Blueprint, request, jsonify
-from ..models import db, Message, Channel
+
+from app import db
+
+from ..models import Message, Channel
 
 message_bp = Blueprint('message_bp', __name__)
 

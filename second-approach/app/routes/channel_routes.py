@@ -1,7 +1,11 @@
 # app/routes/channel_routes.py
 
-from flask import Blueprint, request, jsonify
-from ..models import db, Channel, User
+from flask import Blueprint, request, jsonify, current_app
+import logging
+
+from .. import db
+
+from ..models import Channel, User
 
 channel_bp = Blueprint('channel_bp', __name__)
 
@@ -11,18 +15,32 @@ def create_channel():
     Create a new channel. Expects JSON with { "name": "someName", "creator_id": 1, "is_dm": false }
     """
     data = request.get_json()
+    # Add debug logging
+    current_app.logger.debug(f"Received channel creation request with data: {data}")
+    
+    # Validate required fields
+    if not data or 'name' not in data or 'creator_id' not in data:
+        current_app.logger.error(f"Missing required fields. Received: {data}")
+        return jsonify({'error': 'Missing required fields'}), 400
+
     creator = User.query.get(data.get('creator_id'))
     if not creator:
+        current_app.logger.error(f"Creator with id {data.get('creator_id')} not found")
         return jsonify({'error': 'Creator not found'}), 400
 
-    new_channel = Channel(
-        name=data.get('name'),
-        creator_id=data.get('creator_id'),
-        is_dm=data.get('is_dm', False)
-    )
-    db.session.add(new_channel)
-    db.session.commit()
-    return jsonify({"message": "Channel created", "channel_id": new_channel.id}), 201
+    try:
+        new_channel = Channel(
+            name=data.get('name'),
+            creator_id=data.get('creator_id'),
+            is_dm=data.get('is_dm', False)
+        )
+        db.session.add(new_channel)
+        db.session.commit()
+        return jsonify({"message": "Channel created", "channel_id": new_channel.id}), 201
+    except Exception as e:
+        current_app.logger.error(f"Error creating channel: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
 
 @channel_bp.route('/channels', methods=['GET'])
 def list_channels():

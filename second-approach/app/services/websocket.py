@@ -1,59 +1,65 @@
 # services/websocket.py
 
+from flask import request
 from flask_socketio import join_room, emit
-from ..models import db, Channel, ChannelMembership, Message
 
-def init_socket_handlers(socketio):
-    """
-    Attach all socket event handlers to the provided SocketIO instance.
-    Call this once in your create_app or equivalent setup.
-    """
+from .. import db, socketio
 
-    @socketio.on('join_channel')
-    def handle_join_channel(data):
-        """
-        data example: { "user_id": 1, "channel_id": 2 }
-        """
-        user_id = data.get("user_id")
-        channel_id = data.get("channel_id")
+from ..models import Channel, ChannelMembership, Message
 
-        # Check if channel and membership exist
-        channel = Channel.query.get(channel_id)
-        if not channel:
-            emit("error", {"message": f"Channel {channel_id} not found."})
-            print(f"Join Channel Error 1: Channel {channel_id} not found.")
-            return
+@socketio.on('connect')
+def handle_connect():
+    print(f"[SERVER] Client connected: {request.sid}")
 
-        membership = ChannelMembership.query.filter_by(
-            user_id=user_id, channel_id=channel_id
-        ).first()
-        if not membership:
-            emit("error", {"message": "User not a member of this channel."})
-            print(f"Error: User is not a member of channel {channel_id}.")
-            return
+@socketio.on('disconnect')
+def handle_disconnect():
+    print(f"[SERVER] Client disconnected: {request.sid}")
 
-        # Join a named room for that channel
-        join_room(str(channel_id))
-        print(f"Success: room joined with id:{channel_id}")
+@socketio.on('join_channel')
+def handle_join_channel(data):
+    print(f"[SERVER] Join channel request - {data}")
+    user_id = data.get("user_id")
+    channel_id = data.get("channel_id")
 
-        # Notify room that user joined (optional)
-        emit("user_joined", {"user_id": user_id}, to=str(channel_id))
-        print("Room notified")
-        # Could also just confirm to the sender
-        emit("joined_channel_ok", {"channel_id": channel_id})
-        print("Joined channel ok")
+    # Check if channel and membership exist
+    channel = Channel.query.get(channel_id)
+    if not channel:
+        emit("error", {"message": f"Channel {channel_id} not found."})
+        print(f"Join Channel Error 1: Channel {channel_id} not found.")
+        return
 
-    @socketio.on('send_message')
-    def handle_send_message(data):
-        """
-        data example: { "user_id": 1, "channel_id": 2, "content": "Hello world" }
-        """
+    membership = ChannelMembership.query.filter_by(
+        user_id=user_id, channel_id=channel_id
+    ).first()
+    if not membership:
+        emit("error", {"message": "User not a member of this channel."})
+        print(f"Error: User is not a member of channel {channel_id}.")
+        return
+
+    # Join a named room for that channel
+    join_room(str(channel_id))
+    print(f"[SERVER] User {user_id} joined room {channel_id}")
+
+    # Notify room that user joined
+    emit("user_joined", {"user_id": user_id}, to=str(channel_id))
+    print(f"[SERVER] Notified room {channel_id} about user {user_id}")
+    
+    emit("joined_channel_ok", {"channel_id": channel_id})
+
+@socketio.on('send_message')
+def handle_send_message(data):
+    print("========= HANDLE SEND MESSAGE CALLED =========")
+    print(f"[SERVER] Message received - {data}")
+    
+    try:
         # Add input validation
         if not all(key in data for key in ['user_id', 'channel_id', 'content']):
+            print("[SERVER] Missing required fields")
             emit("error", {"message": "Missing required fields"})
             return
             
         if not data.get("content").strip():
+            print("[SERVER] Empty content")
             emit("error", {"message": "Message content cannot be empty"})
             return
 
@@ -61,14 +67,7 @@ def init_socket_handlers(socketio):
         channel_id = data.get("channel_id")
         content = data.get("content")
 
-        # Check membership
-        membership = ChannelMembership.query.filter_by(
-            user_id=user_id, channel_id=channel_id
-        ).first()
-        if not membership:
-            emit("error", {"message": "User not a member of this channel."})
-            print(f"Send Message Error 1: User is not a member of channel {channel_id}.")
-            return
+        print(f"[SERVER] Processing message: user={user_id}, channel={channel_id}, content={content}")
 
         # Create message in DB
         new_msg = Message(
@@ -78,19 +77,22 @@ def init_socket_handlers(socketio):
         )
         db.session.add(new_msg)
         db.session.commit()
-        print("Message added to database: ", new_msg)
+        print(f"[SERVER] Message saved to DB: {new_msg.id}")
 
-        # Broadcast 'new_message' to everyone in channel's room
-        emit(
-            "new_message",
-            {
-                "message_id": new_msg.id,
-                "channel_id": new_msg.channel_id,
-                "user_id": new_msg.user_id,
-                "content": new_msg.content,
-                "created_at": new_msg.created_at.isoformat(),
-            },
-            to=str(channel_id)
-        )
-        print("Send message emitted")
-
+        # Prepare message data
+        message_data = {
+            "id": new_msg.id,
+            "channel_id": channel_id,
+            "user_id": user_id,
+            "content": content,
+            "created_at": new_msg.created_at.isoformat()
+        }
+        
+        print(f"[SERVER] Emitting message: {message_data}")
+        socketio.emit('new_message', message_data)
+        print("========= HANDLE SEND MESSAGE COMPLETED =========")
+        
+        return {"status": "success"}
+    except Exception as e:
+        print(f"[SERVER] Error: {str(e)}")
+        return {"status": "error", "message": str(e)}
