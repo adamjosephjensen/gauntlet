@@ -1,10 +1,11 @@
 # app/models.py
 
 from datetime import datetime
+from flask_login import UserMixin
 
-from . import db
+from app import db
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -12,9 +13,15 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     messages = db.relationship('Message', backref='author', lazy='dynamic')
+    magic_links = db.relationship('MagicLink', backref='user', lazy='dynamic')
 
     def __repr__(self):
         return f'<User {self.id} - {self.email}>'
+
+    @property
+    def is_active(self):
+        """All users are active since we validate emails during magic link creation"""
+        return True
 
 
 class Channel(db.Model):

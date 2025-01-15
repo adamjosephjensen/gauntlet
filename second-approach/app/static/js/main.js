@@ -1,9 +1,24 @@
 let selectedChannelId = null;
 let socket = null;
 
-function socketJoinChannel(channelId, userId = 1) {
-  socket.emit("join_channel", { user_id: userId, channel_id: channelId });
+function socketJoinChannel(channelId) {
+  socket.emit("join_channel", { channel_id: channelId });
   console.log(`[CLIENT] Emitted join_channel for channel ${channelId}`);
+}
+
+function handleSignOut() {
+  fetch('/api/auth/logout', { method: 'POST' })
+    .then(response => {
+      if (response.ok) {
+        // Broadcast the logout event to other tabs
+        socket.emit('user_logout');
+        // Redirect to login page
+        window.location.href = '/login';
+      }
+    })
+    .catch(error => {
+      console.error('Error signing out:', error);
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -11,9 +26,25 @@ document.addEventListener("DOMContentLoaded", () => {
   initChannelForm();
   initMessageForm();
 
-  socket = io();
+  // Initialize sign out button
+  const signOutBtn = document.getElementById('sign-out-btn');
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', handleSignOut);
+  }
+
+  socket = io({
+    reconnection: true,
+    reconnectionDelay: 2000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: 5
+  });
+
   socket.on('connect', () => {
       console.log("Socket connected:", socket.id);
+      // Rejoin current channel if any
+      if (selectedChannelId) {
+        socketJoinChannel(selectedChannelId);
+      }
   });
   
   socket.on("error", (data) => {
@@ -34,6 +65,12 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("[CLIENT] user_joined event:", data);
   });
 
+  // Handle logout events from other tabs
+  socket.on("logout_broadcast", () => {
+    console.log("[CLIENT] Received logout broadcast, redirecting to login");
+    window.location.href = '/login';
+  });
+
   socket.on("new_message", (msg) => {
     console.log("[CLIENT] new_message received:", msg);
     
@@ -43,8 +80,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const msgDiv = document.createElement("div");
       msgDiv.className = "message-item";
       msgDiv.innerHTML = `
-        <p><strong>User ${msg.user_id}:</strong> ${msg.content}</p>
-        <p><small>${msg.created_at}</small></p>
+        <div class="message-content">
+          <strong>User ${msg.user_id}:</strong> ${msg.content}
+        </div>
+        <div class="message-timestamp">${formatTimestamp(msg.created_at)}</div>
       `;
       messageListEl.appendChild(msgDiv);
       
@@ -61,15 +100,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const channelDiv = document.createElement("div");
     channelDiv.className = "channel-item";
     channelDiv.setAttribute("data-channel-id", channel.id);
-    channelDiv.innerHTML = `
-      <button onclick="selectChannel(${channel.id}, '${channel.name}')">${channel.name}</button>
-    `;
+    channelDiv.addEventListener("click", () => {
+      selectChannel(channel.id, channel.name);
+    });
+    channelDiv.innerText = channel.name || `Channel #${channel.id}`;
     channelListEl.appendChild(channelDiv);
   });
 
+  socket.on('connect_error', (error) => {
+    console.error('Connection error:', error);
+    handleConnectionError();
+  });
 });
-
-
 
 // ========== Channel List ==========
 
@@ -85,7 +127,6 @@ function initChannelList() {
         channelDiv.innerText = ch.name || `Channel #${ch.id}`;
         channelDiv.addEventListener("click", () => {
           selectChannel(ch.id, ch.name);
-          socketJoinChannel(ch.id);
         });
         channelListEl.appendChild(channelDiv);
       });
@@ -100,6 +141,10 @@ function selectChannel(channelId, channelName) {
   document.getElementById("channel-title").innerText =
     channelName ? `Channel: ${channelName}` : `Channel ID: ${channelId}`;
   document.getElementById("message-form").style.display = "block";
+  
+  // First join the channel's socket room
+  socketJoinChannel(channelId);
+  // Then load messages
   loadChannelMessages(channelId);
 }
 
@@ -110,14 +155,12 @@ function initChannelForm() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const name = document.getElementById("channel-name").value.trim();
-    const creatorId = document.getElementById("channel-creator-id").value;
 
     fetch("/api/channels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
-        creator_id: parseInt(creatorId, 10),
         is_dm: false,
       }),
     })
@@ -145,8 +188,10 @@ function loadChannelMessages(channelId) {
         const msgDiv = document.createElement("div");
         msgDiv.className = "message-item";
         msgDiv.innerHTML = `
-          <p><strong>User ${msg.user_id}:</strong> ${msg.content}</p>
-          <p><small>${msg.created_at}</small></p>
+          <div class="message-content">
+            <strong>User ${msg.user_id}:</strong> ${msg.content}
+          </div>
+          <div class="message-timestamp">${formatTimestamp(msg.created_at)}</div>
         `;
         messageListEl.appendChild(msgDiv);
       });
@@ -179,10 +224,7 @@ function initMessageForm() {
         return;
       }
 
-      const userId = document.getElementById("message-user-id").value;
-
       socket.emit('send_message', {
-        user_id: parseInt(userId, 10),
         channel_id: selectedChannelId,
         content: content
       });
@@ -202,7 +244,6 @@ function initMessageForm() {
       return;
     }
 
-    const userId = document.getElementById("message-user-id").value;
     const content = messageInput.value.trim();
 
     if (!content) {
@@ -210,7 +251,6 @@ function initMessageForm() {
     }
 
     socket.emit('send_message', {
-      user_id: parseInt(userId, 10),
       channel_id: selectedChannelId,
       content: content
     });
@@ -238,5 +278,10 @@ function showChannelError(msg) {
 
 function showMessageError(msg) {
   document.getElementById("message-error").innerText = msg;
+}
+
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 

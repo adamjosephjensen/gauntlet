@@ -1,7 +1,44 @@
 body {
   display: flex;
+  flex-direction: column;
   margin: 0;
   font-family: sans-serif;
+  height: 100vh;
+}
+
+#top-bar {
+  background-color: #2c3e50;
+  color: white;
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.sign-out-btn {
+  padding: 0.3rem 0.8rem;
+  background-color: transparent;
+  color: white;
+  border: 1px solid white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.sign-out-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
 #sidebar {
@@ -9,11 +46,20 @@ body {
   background-color: #f0f0f0;
   border-right: 1px solid #ccc;
   padding: 1rem;
+  overflow-y: auto;
 }
 
 #main {
   flex: 1;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+#message-list {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
 }
 
 h2 {
@@ -45,5 +91,19 @@ h2 {
   border-bottom: 1px solid #ccc;
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.message-content {
+  flex: 1;
+}
+
+.message-timestamp {
+  color: #666;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
