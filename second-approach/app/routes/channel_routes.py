@@ -53,13 +53,14 @@ def create_channel():
         return jsonify({'error': str(e)}), 400
 
 @channel_bp.route('/channels', methods=['GET'])
+@login_required
 def list_channels():
     """
-    Return a list of all channels.
+    Return a list of all channels, including IDs of recently deleted channels.
     """
     # Get timestamp filter from query params for polling
     after_timestamp = request.args.get('after')
-    query = Channel.query
+    query = Channel.query.filter(Channel.deleted_at.is_(None))
     
     if after_timestamp:
         try:
@@ -68,6 +69,7 @@ def list_channels():
         except ValueError:
             return jsonify({"error": "Invalid timestamp format"}), 400
             
+    # Get active channels
     channels = query.all()
     results = []
     for ch in channels:
@@ -78,7 +80,21 @@ def list_channels():
             "is_dm": ch.is_dm,
             "created_at": ch.created_at.isoformat()
         })
-    return jsonify(results), 200
+
+    # Get IDs of channels deleted since last poll
+    deleted_channels_query = Channel.query.filter(
+        Channel.deleted_at.isnot(None)
+    )
+    if after_timestamp:
+        deleted_channels_query = deleted_channels_query.filter(
+            Channel.deleted_at > after_dt
+        )
+    deleted_channel_ids = [ch.id for ch in deleted_channels_query.all()]
+    
+    return jsonify({
+        "channels": results,
+        "deleted_channel_ids": deleted_channel_ids
+    }), 200
 
 @channel_bp.route('/channels/<int:channel_id>', methods=['DELETE'])
 @login_required
@@ -89,24 +105,12 @@ def delete_channel(channel_id):
     channel = Channel.query.get_or_404(channel_id)
     if channel.creator_id != current_user.id:
         return jsonify({"error": "Not authorized to delete this channel"}), 403
-    db.session.delete(channel)
-    db.session.commit()
-    return jsonify({"message": f"Channel {channel_id} deleted."}), 200
 
-@channel_bp.route('/channels/<int:channel_id>', methods=['PATCH'])
-@login_required
-def update_channel(channel_id):
-    """
-    Update channel name or is_dm if needed.
-    """
-    channel = Channel.query.get_or_404(channel_id)
-    if channel.creator_id != current_user.id:
-        return jsonify({"error": "Not authorized to update this channel"}), 403
-    data = request.get_json()
-    if 'name' in data:
-        channel.name = data['name']
-    if 'is_dm' in data:
-        channel.is_dm = data['is_dm']
+    # Soft delete the channel
+    channel.deleted_at = datetime.utcnow()
     db.session.commit()
-    return jsonify({"message": f"Channel {channel_id} updated."}), 200
 
+    return jsonify({
+        "message": f"Channel {channel_id} deleted.",
+        "deleted_channel_id": channel_id
+    }), 200

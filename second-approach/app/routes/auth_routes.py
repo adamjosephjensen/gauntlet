@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 import secrets
 import logging
-from flask import Blueprint, request, jsonify, current_app, redirect, url_for
+from flask import Blueprint, request, jsonify, current_app, redirect, url_for, render_template
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_mail import Message
 from sqlalchemy import or_
@@ -162,3 +162,10 @@ def get_current_user():
         "email": current_user.email,
         "is_authenticated": True
     }), 200 
+
+@auth_bp.route('/login')
+def login():
+    """Render the login page"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    return render_template('login.html') 

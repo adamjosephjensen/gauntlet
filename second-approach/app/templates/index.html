@@ -6,7 +6,7 @@
   <!-- Link to your stylesheet -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
-<body>
+<body data-user-id="{{ current_user.id }}">
   <div id="top-bar">
     <div class="user-info">
       <span>{{ current_user.email }}</span>

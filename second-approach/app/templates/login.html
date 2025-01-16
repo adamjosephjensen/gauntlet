@@ -47,6 +47,11 @@
             background: #0056b3;
         }
 
+        .login-form button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         .error-message {
             color: #dc3545;
             margin-top: 1rem;
@@ -86,7 +91,7 @@
                 placeholder="Enter your @gauntletai.com or @bloomtech.com email"
                 required
             >
-            <button type="submit">Send Magic Link</button>
+            <button type="submit" id="submit-btn">Send Magic Link</button>
         </form>
 
         <div id="error-message" class="error-message"></div>
@@ -100,6 +105,13 @@
             const email = document.getElementById('email').value;
             const errorDiv = document.getElementById('error-message');
             const successDiv = document.getElementById('success-message');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            // Show immediate feedback
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            successDiv.textContent = 'Sending magic link...';
+            errorDiv.textContent = '';
             
             try {
                 const response = await fetch('/api/auth/magic-link', {
@@ -115,6 +127,8 @@
                 if (!response.ok) {
                     errorDiv.textContent = data.error;
                     successDiv.textContent = '';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Send Magic Link';
                     return;
                 }
                 
@@ -129,6 +143,8 @@
             } catch (error) {
                 errorDiv.textContent = 'An error occurred. Please try again.';
                 successDiv.textContent = '';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Magic Link';
             }
         });
     </script>

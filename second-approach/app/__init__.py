@@ -75,14 +75,8 @@ def create_app():
     @app.route('/')
     def index():
         if app.config['AUTH_REQUIRED'] and not current_user.is_authenticated:
-            return render_template('login.html')
+            return redirect(url_for('auth_bp.login'))
         return render_template('index.html')
-
-    @app.route('/login')
-    def login():
-        if current_user.is_authenticated:
-            return redirect(url_for('index'))
-        return render_template('login.html')
 
     return app
 

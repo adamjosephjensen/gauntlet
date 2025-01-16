@@ -32,11 +32,33 @@ async function pollNewChannels() {
             ? `/api/channels?after=${encodeURIComponent(lastChannelTimestamp)}`
             : '/api/channels';
             
-        const response = await fetch(url);
-        const channels = await handleFetchErrors(response);
+        const response = await fetch(url, { credentials: 'include' });
+        if (response.status === 401) {
+            window.location.href = '/api/auth/login';
+            return;
+        }
+        const data = await handleFetchErrors(response);
         
-        if (channels.length > 0) {
-            channels.forEach(channel => {
+        // Handle deleted channels
+        if (data.deleted_channel_ids && data.deleted_channel_ids.length > 0) {
+            data.deleted_channel_ids.forEach(channelId => {
+                const channelEl = document.querySelector(`[data-channel-id="${channelId}"]`);
+                if (channelEl) {
+                    channelEl.remove();
+                    // If this was the selected channel, clear the messages
+                    if (selectedChannelId === channelId) {
+                        selectedChannelId = null;
+                        document.getElementById("channel-title").innerText = "Select a channel";
+                        document.getElementById("message-list").innerHTML = "";
+                        document.getElementById("message-form").style.display = "none";
+                    }
+                }
+            });
+        }
+        
+        // Handle new channels
+        if (data.channels && data.channels.length > 0) {
+            data.channels.forEach(channel => {
                 appendChannel(channel);
                 lastChannelTimestamp = channel.created_at;
             });
@@ -52,11 +74,24 @@ async function pollNewMessages(channelId) {
             ? `/api/channels/${channelId}/messages?after=${encodeURIComponent(lastMessageTimestamp)}`
             : `/api/channels/${channelId}/messages`;
             
-        const response = await fetch(url);
-        const messages = await handleFetchErrors(response);
+        const response = await fetch(url, { credentials: 'include' });
+        if (response.status === 401) {
+            window.location.href = '/api/auth/login';
+            return;
+        }
+        const data = await handleFetchErrors(response);
         
-        if (messages.length > 0) {
-            messages.forEach(msg => {
+        // Handle deleted messages
+        if (data.deleted_message_ids && data.deleted_message_ids.length > 0) {
+            data.deleted_message_ids.forEach(messageId => {
+                const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (messageEl) messageEl.remove();
+            });
+        }
+        
+        // Handle new messages
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(msg => {
                 appendMessage(msg);
                 lastMessageTimestamp = msg.created_at;
             });
@@ -70,14 +105,54 @@ function appendMessage(msg) {
     const messageListEl = document.getElementById("message-list");
     const msgDiv = document.createElement("div");
     msgDiv.className = "message-item";
+    msgDiv.setAttribute('data-message-id', msg.id);
+    
+    // Get current user info from a data attribute we'll add to the body
+    const currentUserId = document.body.getAttribute('data-user-id');
+    const isOwnMessage = currentUserId && parseInt(currentUserId) === msg.user_id;
+    
     msgDiv.innerHTML = `
         <div class="message-content">
             <strong>${msg.user_email}:</strong> ${msg.content}
+            ${isOwnMessage ? `<button class="delete-message-btn" aria-label="Delete message">×</button>` : ''}
         </div>
         <div class="message-timestamp">${formatTimestamp(msg.created_at)}</div>
     `;
+
+    // Add delete button click handler if it's the user's message
+    if (isOwnMessage) {
+        const deleteBtn = msgDiv.querySelector('.delete-message-btn');
+        deleteBtn.addEventListener('click', () => deleteMessage(msg.id));
+    }
+
     messageListEl.appendChild(msgDiv);
     messageListEl.scrollTop = messageListEl.scrollHeight;
+}
+
+async function deleteMessage(messageId) {
+    if (!selectedChannelId) return;
+
+    try {
+        const response = await fetch(`/api/channels/${selectedChannelId}/messages/${messageId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            // Remove the message from the UI
+            const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageEl) messageEl.remove();
+        } else if (response.status === 401) {
+            // Redirect to login if unauthorized
+            window.location.href = '/login';
+        } else {
+            const data = await response.json();
+            showMessageError(data.error || 'Failed to delete message');
+        }
+    } catch (error) {
+        console.error('Error deleting message:', error);
+        showMessageError('Failed to delete message');
+    }
 }
 
 function appendChannel(channel) {
@@ -89,11 +164,68 @@ function appendChannel(channel) {
     const channelDiv = document.createElement("div");
     channelDiv.className = "channel-item";
     channelDiv.setAttribute("data-channel-id", channel.id);
-    channelDiv.addEventListener("click", () => {
+    
+    // Get current user info from a data attribute we'll add to the body
+    const currentUserId = document.body.getAttribute('data-user-id');
+    const isCreator = currentUserId && parseInt(currentUserId) === channel.creator_id;
+    
+    // Create channel name span
+    const channelName = document.createElement("span");
+    channelName.innerText = channel.name || `Channel #${channel.id}`;
+    channelName.style.flex = "1";
+    channelDiv.appendChild(channelName);
+    
+    // Add delete button if user is the creator
+    if (isCreator) {
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-channel-btn";
+        deleteBtn.setAttribute("aria-label", "Delete channel");
+        deleteBtn.innerHTML = "×";
+        deleteBtn.onclick = (e) => {
+            e.stopPropagation(); // Prevent channel selection when clicking delete
+            deleteChannel(channel.id);
+        };
+        channelDiv.appendChild(deleteBtn);
+    }
+    
+    // Add click handler for channel selection
+    channelName.addEventListener("click", () => {
         selectChannel(channel.id, channel.name);
     });
-    channelDiv.innerText = channel.name || `Channel #${channel.id}`;
+    
     channelListEl.appendChild(channelDiv);
+}
+
+async function deleteChannel(channelId) {
+    try {
+        const response = await fetch(`/api/channels/${channelId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            // Remove the channel from the UI
+            const channelEl = document.querySelector(`[data-channel-id="${channelId}"]`);
+            if (channelEl) {
+                channelEl.remove();
+                // If this was the selected channel, clear the messages
+                if (selectedChannelId === channelId) {
+                    selectedChannelId = null;
+                    document.getElementById("channel-title").innerText = "Select a channel";
+                    document.getElementById("message-list").innerHTML = "";
+                    document.getElementById("message-form").style.display = "none";
+                }
+            }
+        } else if (response.status === 401) {
+            window.location.href = '/api/auth/login';
+        } else {
+            const data = await response.json();
+            showChannelError(data.error || 'Failed to delete channel');
+        }
+    } catch (error) {
+        console.error('Error deleting channel:', error);
+        showChannelError('Failed to delete channel');
+    }
 }
 
 function handleSignOut() {
@@ -101,7 +233,7 @@ function handleSignOut() {
         .then(response => {
             if (response.ok) {
                 stopPolling();
-                window.location.href = '/login';
+                window.location.href = '/api/auth/login';
             }
         })
         .catch(error => {
@@ -125,20 +257,26 @@ document.addEventListener("DOMContentLoaded", () => {
 // ========== Channel List ==========
 
 function initChannelList() {
-    fetch("/api/channels")
+    fetch("/api/channels", { credentials: 'include' })
         .then(handleFetchErrors)
-        .then((channels) => {
+        .then((data) => {
             const channelListEl = document.getElementById("channel-list");
             channelListEl.innerHTML = "";
-            channels.forEach((ch) => {
-                appendChannel(ch);
-                if (ch.created_at > (lastChannelTimestamp || '')) {
-                    lastChannelTimestamp = ch.created_at;
-                }
-            });
+            if (data.channels) {
+                data.channels.forEach((ch) => {
+                    appendChannel(ch);
+                    if (ch.created_at > (lastChannelTimestamp || '')) {
+                        lastChannelTimestamp = ch.created_at;
+                    }
+                });
+            }
         })
         .catch((err) => {
-            showChannelError(err.message);
+            if (err.status === 401) {
+                window.location.href = '/api/auth/login';
+            } else {
+                showChannelError(err.message);
+            }
         });
 }
 
@@ -192,20 +330,26 @@ function initChannelForm() {
 // ========== Message List ==========
 
 function loadChannelMessages(channelId) {
-    fetch(`/api/channels/${channelId}/messages`)
+    fetch(`/api/channels/${channelId}/messages`, { credentials: 'include' })
         .then(handleFetchErrors)
-        .then((messages) => {
+        .then((data) => {
             const messageListEl = document.getElementById("message-list");
             messageListEl.innerHTML = "";
-            messages.forEach((msg) => {
-                appendMessage(msg);
-                if (msg.created_at > (lastMessageTimestamp || '')) {
-                    lastMessageTimestamp = msg.created_at;
-                }
-            });
+            if (data.messages) {
+                data.messages.forEach((msg) => {
+                    appendMessage(msg);
+                    if (msg.created_at > (lastMessageTimestamp || '')) {
+                        lastMessageTimestamp = msg.created_at;
+                    }
+                });
+            }
         })
         .catch((err) => {
-            showMessageError(err.message);
+            if (err.status === 401) {
+                window.location.href = '/api/auth/login';
+            } else {
+                showMessageError(err.message);
+            }
         });
 }
 
@@ -249,9 +393,9 @@ function sendMessage(content) {
     fetch(`/api/channels/${selectedChannelId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({
-            content: content,
-            user_id: 1 // TODO: Get from current user
+            content: content
         }),
     })
         .then(handleFetchErrors)
@@ -264,7 +408,11 @@ function sendMessage(content) {
             showMessageError("");
         })
         .catch((err) => {
-            showMessageError(err.message);
+            if (err.status === 401) {
+                window.location.href = '/login';
+            } else {
+                showMessageError(err.message);
+            }
         });
 }
 
@@ -273,7 +421,9 @@ function sendMessage(content) {
 function handleFetchErrors(response) {
     if (!response.ok) {
         return response.json().then((data) => {
-            throw new Error(data.message || `HTTP error ${response.status}`);
+            const error = new Error(data.error || `HTTP error ${response.status}`);
+            error.status = response.status;
+            throw error;
         });
     }
     return response.json();

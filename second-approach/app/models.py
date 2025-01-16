@@ -31,6 +31,7 @@ class Channel(db.Model):
     name = db.Column(db.String(120), nullable=True)
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    deleted_at = db.Column(db.DateTime, nullable=True)
     is_dm = db.Column(db.Boolean, default=False)
 
     def __repr__(self):
@@ -62,6 +63,7 @@ class Message(db.Model):
     channel_id = db.Column(db.Integer, db.ForeignKey('channels.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     def __repr__(self):
         return f'<Message {self.id} by User {self.user_id} in Channel {self.channel_id}>'
