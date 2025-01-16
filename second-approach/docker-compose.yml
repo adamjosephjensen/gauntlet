@@ -1,39 +1,44 @@
-# docker-compose.yml
 services:
   db:
     image: postgres:15
-    container_name: chat_genius_db
+    container_name: chat_genius_db_dev
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 1s
-      timeout: 1s
-      retries: 25
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   web:
     build: .
-    container_name: chat_genius_web
+    container_name: chat_genius_web_dev
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "5000:5000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-      - AUTH_REQUIRED=True
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+      AUTH_REQUIRED: True
+      MAIL_SERVER: ${MAIL_SERVER}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USE_TLS: ${MAIL_USE_TLS}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER}
     volumes:
       - .:/app
-    command: gunicorn --worker-class eventlet --reload --bind 0.0.0.0:5000 app.main:app
+    restart: always
+    command: flask run --host=0.0.0.0
 
 volumes:
   pgdata:
-

@@ -2,32 +2,16 @@
 
 from flask import Flask, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_socketio import SocketIO
 from flask_login import LoginManager, current_user
 from flask_mail import Mail
-from dotenv import load_dotenv
 
 import os
 
-# Load environment variables from .env.prod in production
-if os.environ.get('FLASK_ENV') == 'production':
-    load_dotenv('.env.prod')
-else:
-    load_dotenv()  # Load from .env in development
-
-# 1. Create extensions first. NEVER import routes outside of create_app.
+# Create extensions first. NEVER import routes outside of create_app.
 # otherwise you'll get circular imports.
 db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
-socketio = SocketIO(
-    cors_allowed_origins="*",  # For development. Be more specific in production
-    async_mode='eventlet',     # Use eventlet as async mode
-    logger=True,              # Enable logging for debugging
-    engineio_logger=True,      # Enable Engine.IO logging
-    manage_session=True,       # Let Flask-SocketIO handle the session
-    cookie={'name': 'io', 'path': '/'}  # Proper cookie configuration
-)
 
 def create_app():
     """
@@ -51,38 +35,43 @@ def create_app():
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
     app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
-    # 2. Initialize extensions
+    # Initialize extensions
     db.init_app(app)
-    socketio.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
     login_manager.login_view = "auth_bp.login"
     login_manager.login_message = "Please log in to access this page."
+
+    # Import models to ensure they are registered with SQLAlchemy
+    from .models import User, Channel, Message, MagicLink, ChannelMembership
+
+    # Initialize database tables
+    with app.app_context():
+        try:
+            app.logger.info("Creating database tables...")
+            db.create_all()
+            app.logger.info("Database tables created successfully")
+        except Exception as e:
+            app.logger.error(f"Error during database initialization: {e}")
+            db.session.rollback()
+            raise
 
     @login_manager.user_loader
     def load_user(user_id):
         from .models import User
         return User.query.get(int(user_id))
 
-    # 3. Import websocket handlers AFTER socketio is initialized
-    # IMPORTANT PYTHON/FLASK GOTCHA:
-    # a. Decorators execute when modules are imported
-    # b. @socketio.on() decorators need initialized socketio
-    # c. Therefore: import modules with socket handlers AFTER socketio.init_app()
-    # d. Yes, this is a "side effect import" - you import but never use the module directly!
-    from .services import websocket  # Magic import that registers @socketio.on handlers
-
-    # 4. Import routes INSIDE create_app to avoid circular imports.
+    # Import routes INSIDE create_app to avoid circular imports.
     from .routes.channel_routes import channel_bp
     from .routes.message_routes import message_bp
     from .routes.auth_routes import auth_bp
     
-    # 5. Register blueprints
+    # Register blueprints
     app.register_blueprint(channel_bp, url_prefix='/api')
     app.register_blueprint(message_bp, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
-    # 6. Define routes
+    # Define routes
     @app.route('/')
     def index():
         if app.config['AUTH_REQUIRED'] and not current_user.is_authenticated:
