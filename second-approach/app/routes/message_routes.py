@@ -3,10 +3,12 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from .. import db
-from ..models import Message, Channel, User
+from ..models import Message, Channel, User, MessageReaction
 from datetime import datetime
+import logging
 
 message_bp = Blueprint('message_bp', __name__)
+logger = logging.getLogger(__name__)
 
 @message_bp.route('/channels/<int:channel_id>/messages', methods=['POST'])
 @login_required
@@ -89,16 +91,7 @@ def list_messages(channel_id):
         )
     deleted_message_ids = [msg.id for msg in deleted_messages_query.all()]
 
-    result = []
-    for msg in messages:
-        user = User.query.get(msg.user_id)
-        result.append({
-            "id": msg.id,
-            "user_id": msg.user_id,
-            "user_email": user.email if user else None,
-            "content": msg.content,
-            "created_at": msg.created_at.isoformat()
-        })
+    result = [format_message_with_reactions(msg) for msg in messages]
     
     return jsonify({
         "messages": result,
@@ -124,4 +117,123 @@ def delete_message(channel_id, message_id):
         "message": f"Message {message_id} deleted.",
         "deleted_message_id": message_id
     }), 200
+
+@message_bp.route('/messages/<int:message_id>/reactions', methods=['POST'])
+@login_required
+def add_reaction(message_id):
+    """Add a reaction to a message"""
+    message = Message.query.get_or_404(message_id)
+    data = request.get_json()
+
+    if not data or 'emoji' not in data:
+        logger.error(f"Missing emoji field in request data: {data}")
+        return jsonify({"error": "Missing emoji field"}), 400
+
+    emoji = data['emoji']
+    logger.info(f"Adding reaction {emoji} to message {message_id} by user {current_user.id}")
+    
+    try:
+        # Check if reaction already exists
+        existing_reaction = MessageReaction.query.filter_by(
+            message_id=message_id,
+            user_id=current_user.id,
+            emoji=emoji
+        ).first()
+
+        if existing_reaction:
+            logger.info(f"User {current_user.id} already reacted with {emoji} to message {message_id}")
+            return jsonify({"error": "You've already reacted with this emoji"}), 400
+
+        # Create reaction
+        reaction = MessageReaction(
+            message_id=message_id,
+            user_id=current_user.id,
+            emoji=emoji
+        )
+        db.session.add(reaction)
+        db.session.commit()
+        logger.info(f"Successfully added reaction {emoji} to message {message_id}")
+
+        # Get updated reaction counts for this emoji
+        reaction_count = MessageReaction.query.filter_by(
+            message_id=message_id,
+            emoji=emoji
+        ).count()
+
+        return jsonify({
+            "message": "Reaction added",
+            "reaction_id": reaction.id,
+            "emoji": emoji,
+            "count": reaction_count
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to add reaction: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+@message_bp.route('/messages/<int:message_id>/reactions/<emoji>', methods=['DELETE'])
+@login_required
+def remove_reaction(message_id, emoji):
+    """Remove a user's reaction from a message"""
+    message = Message.query.get_or_404(message_id)
+    
+    # URL decode the emoji parameter
+    from urllib.parse import unquote
+    emoji = unquote(emoji)
+    logger.info(f"Removing reaction {emoji} from message {message_id} by user {current_user.id}")
+
+    reaction = MessageReaction.query.filter_by(
+        message_id=message_id,
+        user_id=current_user.id,
+        emoji=emoji
+    ).first_or_404()
+
+    try:
+        db.session.delete(reaction)
+        db.session.commit()
+        logger.info(f"Successfully removed reaction {emoji} from message {message_id}")
+
+        # Get updated reaction count for this emoji
+        reaction_count = MessageReaction.query.filter_by(
+            message_id=message_id,
+            emoji=emoji
+        ).count()
+
+        return jsonify({
+            "message": "Reaction removed",
+            "emoji": emoji,
+            "count": reaction_count
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Failed to remove reaction: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+# Update the list_messages function to include reactions
+def format_message_with_reactions(message):
+    """Helper function to format a message with its reactions"""
+    user = User.query.get(message.user_id)
+    
+    # Group reactions by emoji and count them
+    reactions = {}
+    for reaction in message.reactions:
+        if reaction.emoji not in reactions:
+            reactions[reaction.emoji] = {
+                'count': 1,
+                'users': [reaction.user_id]
+            }
+        else:
+            reactions[reaction.emoji]['count'] += 1
+            reactions[reaction.emoji]['users'].append(reaction.user_id)
+
+    return {
+        "id": message.id,
+        "user_id": message.user_id,
+        "user_email": user.email if user else None,
+        "content": message.content,
+        "created_at": message.created_at.isoformat(),
+        "reactions": reactions
+    }
 

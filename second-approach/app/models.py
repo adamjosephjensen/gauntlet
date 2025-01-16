@@ -65,8 +65,29 @@ class Message(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Add relationship to reactions
+    reactions = db.relationship('MessageReaction', backref='message', lazy='dynamic')
+
     def __repr__(self):
         return f'<Message {self.id} by User {self.user_id} in Channel {self.channel_id}>'
+
+
+class MessageReaction(db.Model):
+    __tablename__ = 'message_reactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('messages.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    emoji = db.Column(db.String(32), nullable=False)  # Store the emoji character or code
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        # Ensure a user can't react with the same emoji twice on the same message
+        db.UniqueConstraint('message_id', 'user_id', 'emoji', name='unique_user_message_emoji'),
+    )
+
+    def __repr__(self):
+        return f'<MessageReaction {self.id} - {self.emoji} by User {self.user_id} on Message {self.message_id}>'
 
 
 class MagicLink(db.Model):

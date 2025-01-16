@@ -70,16 +70,18 @@ async function pollNewChannels() {
 
 async function pollNewMessages(channelId) {
     try {
-        const url = lastMessageTimestamp 
-            ? `/api/channels/${channelId}/messages?after=${encodeURIComponent(lastMessageTimestamp)}`
-            : `/api/channels/${channelId}/messages`;
-            
-        const response = await fetch(url, { credentials: 'include' });
+        // Always fetch all messages in the channel
+        const response = await fetch(`/api/channels/${channelId}/messages`, {
+            credentials: 'include'
+        });
+        
         if (response.status === 401) {
             window.location.href = '/api/auth/login';
             return;
         }
+        
         const data = await handleFetchErrors(response);
+        console.log('[DEBUG] Polling received messages:', data.messages);
         
         // Handle deleted messages
         if (data.deleted_message_ids && data.deleted_message_ids.length > 0) {
@@ -89,16 +91,71 @@ async function pollNewMessages(channelId) {
             });
         }
         
-        // Handle new messages
+        // Create a map of existing messages in the UI
+        const existingMessages = new Map();
+        document.querySelectorAll('.message-item').forEach(el => {
+            existingMessages.set(el.getAttribute('data-message-id'), el);
+        });
+        
+        // Handle all messages
         if (data.messages && data.messages.length > 0) {
+            let latestTimestamp = lastMessageTimestamp;
+            
             data.messages.forEach(msg => {
-                appendMessage(msg);
-                lastMessageTimestamp = msg.created_at;
+                const existingEl = existingMessages.get(msg.id.toString());
+                if (existingEl) {
+                    // Update existing message's reactions
+                    console.log(`[DEBUG] Updating reactions for message ${msg.id}:`, msg.reactions);
+                    updateMessageReactions(existingEl, msg);
+                } else {
+                    // Add new message
+                    console.log(`[DEBUG] Adding new message ${msg.id}`);
+                    appendMessage(msg);
+                    if (!latestTimestamp || msg.created_at > latestTimestamp) {
+                        latestTimestamp = msg.created_at;
+                    }
+                }
             });
+            
+            // Update the timestamp only for new messages
+            lastMessageTimestamp = latestTimestamp;
         }
     } catch (error) {
         console.error('Error polling messages:', error);
     }
+}
+
+function updateMessageReactions(messageEl, msg) {
+    const currentUserId = document.body.getAttribute('data-user-id');
+    const reactionsList = msg.reactions ? Object.entries(msg.reactions).map(([emoji, data]) => {
+        const hasReacted = data.users.includes(parseInt(currentUserId));
+        return `
+            <button class="reaction-count ${hasReacted ? 'user-reacted' : ''}" 
+                    data-emoji="${emoji}" 
+                    title="${data.users.length} reactions">
+                ${emoji} ${data.count}
+            </button>
+        `;
+    }).join('') : '';
+
+    // Update the reactions list
+    const reactionsListEl = messageEl.querySelector('.reactions-list');
+    if (reactionsListEl) {
+        reactionsListEl.innerHTML = reactionsList;
+    }
+
+    // Re-attach click handlers for reactions
+    messageEl.querySelectorAll('.reaction-count').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const emoji = btn.getAttribute('data-emoji');
+            const hasReacted = btn.classList.contains('user-reacted');
+            if (hasReacted) {
+                await removeReaction(msg.id, emoji);
+            } else {
+                await addReaction(msg.id, emoji);
+            }
+        });
+    });
 }
 
 function appendMessage(msg) {
@@ -111,10 +168,38 @@ function appendMessage(msg) {
     const currentUserId = document.body.getAttribute('data-user-id');
     const isOwnMessage = currentUserId && parseInt(currentUserId) === msg.user_id;
     
+    // Create reaction buttons
+    const reactionButtons = `
+        <div class="reaction-buttons" style="display: none;">
+            <button class="reaction-btn" data-emoji="✅" title="Completed">✅</button>
+            <button class="reaction-btn" data-emoji="👀" title="Taking a Look">👀</button>
+            <button class="reaction-btn" data-emoji="🙌" title="Nicely Done">🙌</button>
+            <button class="reaction-btn custom-emoji" data-emoji="🔍" title="Find Another Reaction">🔍</button>
+        </div>
+    `;
+
+    // Format existing reactions
+    const reactionsList = msg.reactions ? Object.entries(msg.reactions).map(([emoji, data]) => {
+        const hasReacted = data.users.includes(parseInt(currentUserId));
+        return `
+            <button class="reaction-count ${hasReacted ? 'user-reacted' : ''}" 
+                    data-emoji="${emoji}" 
+                    title="${data.users.length} reactions">
+                ${emoji} ${data.count}
+            </button>
+        `;
+    }).join('') : '';
+
     msgDiv.innerHTML = `
         <div class="message-content">
             <strong>${msg.user_email}:</strong> ${msg.content}
             ${isOwnMessage ? `<button class="delete-message-btn" aria-label="Delete message">×</button>` : ''}
+        </div>
+        <div class="reactions-container">
+            ${reactionButtons}
+            <div class="reactions-list">
+                ${reactionsList}
+            </div>
         </div>
         <div class="message-timestamp">${formatTimestamp(msg.created_at)}</div>
     `;
@@ -124,6 +209,54 @@ function appendMessage(msg) {
         const deleteBtn = msgDiv.querySelector('.delete-message-btn');
         deleteBtn.addEventListener('click', () => deleteMessage(msg.id));
     }
+
+    // Add hover handlers for reaction buttons
+    const messageContent = msgDiv.querySelector('.message-content');
+    const reactionButtonsDiv = msgDiv.querySelector('.reaction-buttons');
+    
+    messageContent.addEventListener('mouseenter', () => {
+        reactionButtonsDiv.style.display = 'flex';
+    });
+    
+    messageContent.addEventListener('mouseleave', (e) => {
+        // Check if we're not hovering over the reaction buttons
+        if (!e.relatedTarget || !e.relatedTarget.closest('.reaction-buttons')) {
+            reactionButtonsDiv.style.display = 'none';
+        }
+    });
+    
+    reactionButtonsDiv.addEventListener('mouseleave', (e) => {
+        // Check if we're not hovering over the message content
+        if (!e.relatedTarget || !e.relatedTarget.closest('.message-content')) {
+            reactionButtonsDiv.style.display = 'none';
+        }
+    });
+
+    // Add click handlers for reaction buttons
+    msgDiv.querySelectorAll('.reaction-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const emoji = btn.getAttribute('data-emoji');
+            if (emoji === '🔍') {
+                // Show emoji picker
+                showEmojiPicker(msg.id);
+            } else {
+                await addReaction(msg.id, emoji);
+            }
+        });
+    });
+
+    // Add click handlers for existing reactions
+    msgDiv.querySelectorAll('.reaction-count').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const emoji = btn.getAttribute('data-emoji');
+            const hasReacted = btn.classList.contains('user-reacted');
+            if (hasReacted) {
+                await removeReaction(msg.id, emoji);
+            } else {
+                await addReaction(msg.id, emoji);
+            }
+        });
+    });
 
     messageListEl.appendChild(msgDiv);
     messageListEl.scrollTop = messageListEl.scrollHeight;
@@ -440,5 +573,126 @@ function showMessageError(msg) {
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+async function addReaction(messageId, emoji) {
+    try {
+        console.log(`[INFO] Attempting to add reaction ${emoji} to message ${messageId}`);
+        const response = await fetch(`/api/messages/${messageId}/reactions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ emoji }),
+            credentials: 'include'
+        });
+
+        if (response.status === 401) {
+            console.log('[ERROR] Unauthorized - redirecting to login');
+            window.location.href = '/api/auth/login';
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.log(`[ERROR] Failed to add reaction: ${errorData.error}`);
+            throw new Error(errorData.error);
+        }
+
+        const data = await response.json();
+        console.log(`[INFO] Successfully added reaction ${emoji} to message ${messageId}`);
+        
+        // Immediately update UI
+        const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageEl) {
+            const currentUserId = document.body.getAttribute('data-user-id');
+            const reactionsListEl = messageEl.querySelector('.reactions-list');
+            const existingReactionBtn = reactionsListEl.querySelector(`[data-emoji="${emoji}"]`);
+            
+            if (existingReactionBtn) {
+                // Update existing reaction count
+                const count = parseInt(existingReactionBtn.textContent.split(' ')[1] || '0') + 1;
+                existingReactionBtn.classList.add('user-reacted');
+                existingReactionBtn.innerHTML = `${emoji} ${count}`;
+                existingReactionBtn.title = `${count} reactions`;
+            } else {
+                // Add new reaction
+                const newReactionBtn = document.createElement('button');
+                newReactionBtn.className = 'reaction-count user-reacted';
+                newReactionBtn.setAttribute('data-emoji', emoji);
+                newReactionBtn.title = '1 reaction';
+                newReactionBtn.innerHTML = `${emoji} 1`;
+                
+                // Add click handler
+                newReactionBtn.addEventListener('click', async () => {
+                    const hasReacted = newReactionBtn.classList.contains('user-reacted');
+                    if (hasReacted) {
+                        await removeReaction(messageId, emoji);
+                    } else {
+                        await addReaction(messageId, emoji);
+                    }
+                });
+                
+                reactionsListEl.appendChild(newReactionBtn);
+            }
+        }
+    } catch (error) {
+        console.error('[ERROR] Error adding reaction:', error);
+        showMessageError('Failed to add reaction');
+    }
+}
+
+async function removeReaction(messageId, emoji) {
+    try {
+        console.log(`[INFO] Attempting to remove reaction ${emoji} from message ${messageId}`);
+        const response = await fetch(`/api/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+
+        if (response.status === 401) {
+            console.log('[ERROR] Unauthorized - redirecting to login');
+            window.location.href = '/api/auth/login';
+            return;
+        }
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.log(`[ERROR] Failed to remove reaction: ${errorData.error}`);
+            throw new Error(errorData.error);
+        }
+
+        const data = await response.json();
+        console.log(`[INFO] Successfully removed reaction ${emoji} from message ${messageId}`);
+        
+        // Immediately update UI
+        const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (messageEl) {
+            const reactionBtn = messageEl.querySelector(`.reaction-count[data-emoji="${emoji}"]`);
+            if (reactionBtn) {
+                const count = parseInt(reactionBtn.textContent.split(' ')[1] || '1') - 1;
+                if (count > 0) {
+                    // Update count and remove user-reacted class
+                    reactionBtn.classList.remove('user-reacted');
+                    reactionBtn.innerHTML = `${emoji} ${count}`;
+                    reactionBtn.title = `${count} reactions`;
+                } else {
+                    // Remove the reaction button if count is 0
+                    reactionBtn.remove();
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[ERROR] Error removing reaction:', error);
+        showMessageError('Failed to remove reaction');
+    }
+}
+
+function showEmojiPicker(messageId) {
+    // For now, we'll use a simple prompt. In a real app, you'd want a proper emoji picker UI
+    const emoji = prompt('Enter an emoji:');
+    if (emoji) {
+        addReaction(messageId, emoji);
+    }
 }
 
