@@ -6,6 +6,20 @@ let messagePollInterval = null;
 
 const POLL_INTERVAL = 2000; // Poll every 2 seconds
 
+// Initialize everything when the DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initChannelList();
+    initChannelForm();
+    initMessageForm();
+    initDMFeatures();
+    
+    // Set up sign out
+    document.getElementById('sign-out-btn').addEventListener('click', handleSignOut);
+    
+    // Start polling
+    startPolling();
+});
+
 function startPolling() {
     // Stop any existing polling
     stopPolling();
@@ -289,44 +303,41 @@ async function deleteMessage(messageId) {
 }
 
 function appendChannel(channel) {
-    const channelListEl = document.getElementById("channel-list");
-    // Check if channel already exists
+    const listEl = channel.is_dm ? document.getElementById("dm-list") : document.getElementById("channel-list");
+    
+    // Don't add if already exists
     if (document.querySelector(`[data-channel-id="${channel.id}"]`)) {
         return;
     }
+    
     const channelDiv = document.createElement("div");
-    channelDiv.className = "channel-item";
-    channelDiv.setAttribute("data-channel-id", channel.id);
+    channelDiv.className = channel.is_dm ? "dm-item" : "channel-item";
+    channelDiv.setAttribute('data-channel-id', channel.id);
     
-    // Get current user info from a data attribute we'll add to the body
-    const currentUserId = document.body.getAttribute('data-user-id');
-    const isCreator = currentUserId && parseInt(currentUserId) === channel.creator_id;
+    let displayName = channel.name;
+    if (channel.is_dm && channel.participants && channel.participants.length > 0) {
+        // For DMs, show the other participant's email or "Note to Self"
+        const currentUserId = document.body.getAttribute('data-user-id');
+        const otherParticipant = channel.participants.find(p => p.id !== parseInt(currentUserId));
+        displayName = otherParticipant ? otherParticipant.email : "Note to Self";
+    }
     
-    // Create channel name span
-    const channelName = document.createElement("span");
-    channelName.innerText = channel.name || `Channel #${channel.id}`;
-    channelName.style.flex = "1";
-    channelDiv.appendChild(channelName);
+    channelDiv.textContent = displayName;
     
-    // Add delete button if user is the creator
-    if (isCreator) {
+    // Add delete button for channels user can delete
+    if (!channel.is_dm && channel.creator_id === parseInt(document.body.getAttribute('data-user-id'))) {
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "delete-channel-btn";
-        deleteBtn.setAttribute("aria-label", "Delete channel");
         deleteBtn.innerHTML = "×";
-        deleteBtn.onclick = (e) => {
-            e.stopPropagation(); // Prevent channel selection when clicking delete
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             deleteChannel(channel.id);
-        };
+        });
         channelDiv.appendChild(deleteBtn);
     }
     
-    // Add click handler for channel selection
-    channelName.addEventListener("click", () => {
-        selectChannel(channel.id, channel.name);
-    });
-    
-    channelListEl.appendChild(channelDiv);
+    channelDiv.addEventListener('click', () => selectChannel(channel.id, displayName));
+    listEl.appendChild(channelDiv);
 }
 
 async function deleteChannel(channelId) {
@@ -373,19 +384,6 @@ function handleSignOut() {
             console.error('Error signing out:', error);
         });
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-    initChannelList();
-    initChannelForm();
-    initMessageForm();
-    startPolling();
-
-    // Initialize sign out button
-    const signOutBtn = document.getElementById('sign-out-btn');
-    if (signOutBtn) {
-        signOutBtn.addEventListener('click', handleSignOut);
-    }
-});
 
 // ========== Channel List ==========
 
@@ -694,5 +692,97 @@ function showEmojiPicker(messageId) {
     if (emoji) {
         addReaction(messageId, emoji);
     }
+}
+
+function initDMFeatures() {
+    const modal = document.getElementById('dm-modal');
+    const newDMBtn = document.getElementById('new-dm-btn');
+    const closeModalBtn = document.getElementById('close-dm-modal');
+    const userSearch = document.getElementById('user-search');
+    const userList = document.getElementById('user-list');
+    
+    // Show modal when "New Direct Message" is clicked
+    newDMBtn.addEventListener('click', () => {
+        modal.style.display = 'block';
+        userSearch.value = '';
+        loadUsers();
+    });
+    
+    // Close modal when close button is clicked
+    closeModalBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+    
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+    
+    // Handle user search
+    let searchTimeout;
+    userSearch.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => loadUsers(userSearch.value), 300);
+    });
+}
+
+async function loadUsers(search = '') {
+    try {
+        const response = await fetch(`/api/users${search ? `?search=${encodeURIComponent(search)}` : ''}`, {
+            credentials: 'include'
+        });
+        const data = await handleFetchErrors(response);
+        
+        const userList = document.getElementById('user-list');
+        userList.innerHTML = '';
+        
+        data.users.forEach(user => {
+            const userDiv = document.createElement('div');
+            userDiv.className = `user-item${user.is_self ? ' self' : ''}`;
+            userDiv.textContent = user.is_self ? `${user.email} (Note to Self)` : user.email;
+            
+            userDiv.addEventListener('click', () => createDM(user.id));
+            userList.appendChild(userDiv);
+        });
+    } catch (error) {
+        console.error('Error loading users:', error);
+        showDMError('Failed to load users');
+    }
+}
+
+async function createDM(participantId) {
+    try {
+        const response = await fetch('/api/channels', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                is_dm: true,
+                participant_id: participantId
+            }),
+            credentials: 'include'
+        });
+        
+        const data = await handleFetchErrors(response);
+        
+        // Close the modal
+        document.getElementById('dm-modal').style.display = 'none';
+        
+        // Select the new DM channel
+        selectChannel(data.channel_id, data.data.name);
+        
+    } catch (error) {
+        console.error('Error creating DM:', error);
+        showDMError('Failed to create DM');
+    }
+}
+
+function showDMError(msg) {
+    const errorDiv = document.getElementById('dm-error');
+    errorDiv.textContent = msg;
+    setTimeout(() => errorDiv.textContent = '', 5000);
 }
 

@@ -15,14 +15,34 @@
 
   <div class="main-content">
     <div id="sidebar">
-      <h2>Channels</h2>
-      <div id="channel-list"></div>
+      <div class="sidebar-section">
+        <h2>Channels</h2>
+        <div id="channel-list"></div>
 
-      <form id="channel-form">
-        <input type="text" id="channel-name" placeholder="New channel name" required />
-        <button type="submit">Create Channel</button>
-      </form>
-      <div id="channel-error" class="error"></div>
+        <form id="channel-form">
+          <input type="text" id="channel-name" placeholder="New channel name" required />
+          <button type="submit">Create Channel</button>
+        </form>
+        <div id="channel-error" class="error"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h2>Direct Messages</h2>
+        <div id="dm-list"></div>
+
+        <button id="new-dm-btn" class="secondary-btn">New Direct Message</button>
+        <div id="dm-error" class="error"></div>
+
+        <!-- DM User Selection Modal -->
+        <div id="dm-modal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <h3>New Direct Message</h3>
+            <input type="text" id="user-search" placeholder="Search users..." />
+            <div id="user-list"></div>
+            <button id="close-dm-modal" class="secondary-btn">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div id="main">
