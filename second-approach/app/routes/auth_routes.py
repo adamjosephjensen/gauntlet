@@ -42,7 +42,7 @@ def send_magic_link_email(user_email, verify_url):
         Hello!
 
         Click the following link to log in to Chat Genius:
-        https://18.224.56.202.nip.io{verify_url}
+        {verify_url}
 
         This link will expire in 15 minutes.
 
