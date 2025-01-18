@@ -4,14 +4,33 @@ from flask import Flask, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from flask_mail import Mail
-
+import logging
 import os
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Create extensions first. NEVER import routes outside of create_app.
 # otherwise you'll get circular imports.
 db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
+
+ECHO_BOT_EMAIL = "bot@gauntletai.com"
+
+def ensure_bot_exists():
+    """Ensure the echo bot user exists"""
+    from .models import User
+    
+    bot = User.query.filter_by(email=ECHO_BOT_EMAIL).first()
+    if not bot:
+        bot = User(email=ECHO_BOT_EMAIL)
+        db.session.add(bot)
+        db.session.commit()
+    return bot
 
 def create_app():
     """
@@ -51,6 +70,8 @@ def create_app():
             app.logger.info("Creating database tables...")
             db.create_all()
             app.logger.info("Database tables created successfully")
+            # Ensure bot exists
+            ensure_bot_exists()
         except Exception as e:
             app.logger.error(f"Error during database initialization: {e}")
             db.session.rollback()

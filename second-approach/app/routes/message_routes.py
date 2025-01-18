@@ -2,19 +2,47 @@
 
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
+import asyncio
 from .. import db
-from ..models import Message, Channel, User, MessageReaction
+from ..models import Message, Channel, User, MessageReaction, ChannelMembership
+from ..services.bot_service import bot_service
 from datetime import datetime
 import logging
 
 message_bp = Blueprint('message_bp', __name__)
 logger = logging.getLogger(__name__)
 
+# Constants
+ECHO_BOT_EMAIL = "bot@gauntletai.com"
+
+def get_bot_user():
+    """Helper function to get the bot user"""
+    return User.query.filter_by(email=ECHO_BOT_EMAIL).first()
+
+def is_bot_dm(channel_id):
+    """Check if this is a DM channel with the bot"""
+    channel = Channel.query.get(channel_id)
+    if not channel or not channel.is_dm:
+        return False
+    
+    # Check if bot is a member
+    bot = get_bot_user()
+    if not bot:
+        return False
+        
+    bot_membership = ChannelMembership.query.filter_by(
+        channel_id=channel_id,
+        user_id=bot.id
+    ).first()
+    
+    return bool(bot_membership)
+
 @message_bp.route('/channels/<int:channel_id>/messages', methods=['POST'])
 @login_required
 def create_message(channel_id):
-    """Create a new message"""
+    """Create a new message and handle bot responses"""
     data = request.get_json()
+    logger.info(f"Received message in channel {channel_id}")
     
     if not data or 'content' not in data:
         return jsonify({"error": "Missing content field"}), 400
@@ -23,13 +51,41 @@ def create_message(channel_id):
         return jsonify({"error": "Message content cannot be empty"}), 400
 
     try:
-        # Create message
+        # Create user message
         message = Message(
             channel_id=channel_id,
             user_id=current_user.id,
             content=data['content']
         )
         db.session.add(message)
+        
+        # If this is a bot DM, create the bot's response
+        logger.info(f"Checking if channel {channel_id} is a bot DM")
+        if is_bot_dm(channel_id):
+            logger.info("Channel is a bot DM, getting bot response")
+            bot = get_bot_user()
+            if bot:
+                logger.info(f"Found bot user with id {bot.id}")
+                # Get response from LangChain
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                bot_response = loop.run_until_complete(
+                    bot_service.get_response(data['content'])
+                )
+                loop.close()
+                
+                # Create bot message
+                bot_message = Message(
+                    channel_id=channel_id,
+                    user_id=bot.id,
+                    content=bot_response
+                )
+                db.session.add(bot_message)
+            else:
+                logger.error("Bot user not found in database")
+        else:
+            logger.info("Channel is not a bot DM")
+        
         db.session.commit()
 
         # Format response
@@ -49,6 +105,7 @@ def create_message(channel_id):
         }), 201
         
     except Exception as e:
+        logger.error(f"Error creating message: {str(e)}")
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 

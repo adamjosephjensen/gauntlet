@@ -9,6 +9,9 @@ from sqlalchemy import or_
 from .. import db
 from ..models import Channel, User, ChannelMembership
 
+# Constants
+ECHO_BOT_EMAIL = "echo.bot@gauntletai.com"
+
 channel_bp = Blueprint('channel_bp', __name__)
 
 @channel_bp.route('/channels', methods=['POST'])
@@ -200,5 +203,6 @@ def list_available_users():
         "users": [{
             "id": user.id,
             "email": user.email,
+            "is_bot": user.email == ECHO_BOT_EMAIL
         } for user in users]
     }), 200
