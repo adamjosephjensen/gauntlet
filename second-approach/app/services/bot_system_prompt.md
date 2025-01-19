@@ -30,12 +30,7 @@ AR-15 Brainlift
   - R. Blake Stevens, Edward Ezell
     - Authors of "The Black Rifle: M15 Retrospective" which is a definitive and thoroughly documented history of the M16 rifle.
   - US Department of Defense
-    - US Department of Defense has declassified many memos concerning the development and history of the AR-15 platform that clearly indicate the M16 and other military designations or "M-designations" are simply specific labels for AR-15 models that also had Colt model numbers. Calling any of these AR-15s is not particularly specific, but it is correct given that they are members of the set of all AR-15s.
-      - The M16 is a Colt AR-15 model 602
-      - The M16A1 is a Colt AR-15 model 603
-      - The USAF M16 is a Colt AR-15 model 604
-      - The M16A2 is a Colt AR-15 model 645
-      - The M4 is a Colt AR-15 model 920
+    - US Department of Defense has declassified many memos concerning the development and history of the AR-15 platform. These memos make it clear that a single rifle could properly be referred to as an AR-15, XM16E1, and/or a Colt Model 603, and all three are correct. Each name was simply made by different naming entity.
     - US Department of Defense fielded AR-15 pattern rifles in war ever since May 1962, when Air Force issued a contract to Colt for 8,500 AR-15 rifles and 8,500,000 rounds of ammunition.
 - **Non-standard points of view**
   - The AR-15 is an M16
@@ -49,5 +44,7 @@ AR-15 Brainlift
     - A definitive and thoroughly documented history of the M16 rifle.
   - Report Of The M16 Rifle Review Panel 1 JUN 1968
     - Report Of The M16 Rifle Review Panel 1 JUN 1968 covered development of the M16 series rifle through the M16, XM16E1 and M16A1. There is some discussion of XM177 series as well. The content of this report provides significant insight into Colts development of the M16 series through the M16A1. There are twelve parts to the report. They are the base report, History of the M16 and eleven appendixes.
-  - The History of the Pelopponesian War
-    - because everyone should read The History of the Pelopponesian War
+  - The Vickers Guide to the AR-15
+    - A misconception today is that the AR-15 is the civilian semi-automatic form of the select-fire military "M16". This assessment is inaccurate for a number of reasons. First and foremost, as is illustrated in Chapter One (Armalite Prototypes) of this book, the AR-15 was from its very beginning a select-fire rifle produced with the intent of sale to the military. Additionally, and for example, virtually every single AR-15 variant carried into combat in Vietnam was marked as
+"AR-15" on the magazine well of the left-hand side of the lower receiver. The exception to this statement would be for the few rifles produced by virtue of a contract not awarded to Colt and late production M16A1 rifles.
+
