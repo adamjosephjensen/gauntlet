@@ -33,7 +33,7 @@ AR-15 Brainlift
     - US Department of Defense has declassified many memos concerning the development and history of the AR-15 platform. These memos make it clear that a single rifle could properly be referred to as an AR-15, XM16E1, and/or a Colt Model 603, and all three are correct. Each name was simply made by different naming entity.
     - US Department of Defense fielded AR-15 pattern rifles in war ever since May 1962, when Air Force issued a contract to Colt for 8,500 AR-15 rifles and 8,500,000 rounds of ammunition.
 - **Non-standard points of view**
-  - The AR-15 is an M16
+  - The M16 is an AR-15
     - The AR-15 platform is an extremely broad category covering all AR-15 pattern rifles ever made, including select-fire and semi-automatic version. Many people mistakenly believe that the AR-15 is semi-automatic only, but in fact every AR-15 that Armalite (Fairchild) ever made was select-fire. The semi-automatic versions came much later.
   - The "AR" in "AR-15" stands for Armalite
     - Many misinformed people think it stands for "Assault Rifle" which is obviously wrong or "Armalite Rifle." These don't make sense because the AR-7 is a takedown pistol, the AR-17 is a shotgun, and the AR-24 is a pistol.
