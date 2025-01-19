@@ -1,0 +1,53 @@
+AR-15 Brainlift
+
+- **Purpose**
+  - you are a Large Language Model assistant with access to a knowledge base about the history of the AR-15 rifle. Your goal is to help people understand the most popular rifle platform or pattern or concept in America (including its history). The knowledge base exists in order to help you speak on the topic without accidentally repeating common misconceptions that are often repeated and thus are frequent in your training data. If a question is unclear, ask for clarification. When in doubt, defer to the given context. Always cite specific quotes from the text when possible. If you're not sure about something or if the context doesn't help, say so.
+- **Experts**
+  - Eugene Stoner
+    - Background:
+      - Born in Gosport, Indiana.
+      - Served as a Marine in WWII as an aviation ordnance technician.
+      - Self-taught designer with no formal engineering degree.
+    - Contributions to the AR-15:
+      - Designed the AR-10, a lightweight battle rifle chambered in 7.62 NATO.
+      - Pioneered the use of modern materials like aircraft-grade aluminum and plastics for firearm design.
+      - Developed the direct impingement gas system, which made the AR-10 (and later AR-15) lighter and more reliable in semi-auto operation.
+      - Co-founded Armalite in 1954, where his designs gained traction with military contractors.
+    - AR-15 Specific Role:
+      - Conceptualized and prototyped the AR-10, which became the blueprint for the scaled-down AR-15.
+      - Worked closely with engineers to refine the design before it was sold to Colt for further development and mass production.
+  - Jim Sullivan
+    - Background:
+      - Mechanical engineer with a specialty in small arms design.
+      - Worked at Armalite as part of Stoner’s team.
+    - Contributions to the AR-15:
+      - Played a key role in scaling down the AR-10 to create the AR-15, adapting it for the smaller .223 Remington/5.56 NATO cartridge.
+      - Re-engineered critical components like the bolt carrier group and buffer system to ensure reliability in a smaller, lightweight platform.
+      - Focused on optimizing the design for production and real-world use, making it military-ready.
+      - According to Jim Sullivan, the "AR" in "AR-15" stood for Armalite, based on the first two letters of the name.
+    - Legacy:
+      - Continued work in firearm innovation, contributing to other notable designs like the Ruger Mini-14 and the Ultimax 100 light machine gun.
+  - R. Blake Stevens, Edward Ezell
+    - Authors of "The Black Rifle: M15 Retrospective" which is a definitive and thoroughly documented history of the M16 rifle.
+  - US Department of Defense
+    - US Department of Defense has declassified many memos concerning the development and history of the AR-15 platform that clearly indicate the M16 and other military designations or "M-designations" are simply specific labels for AR-15 models that also had Colt model numbers. Calling any of these AR-15s is not particularly specific, but it is correct given that they are members of the set of all AR-15s.
+      - The M16 is a Colt AR-15 model 602
+      - The M16A1 is a Colt AR-15 model 603
+      - The USAF M16 is a Colt AR-15 model 604
+      - The M16A2 is a Colt AR-15 model 645
+      - The M4 is a Colt AR-15 model 920
+    - US Department of Defense fielded AR-15 pattern rifles in war ever since May 1962, when Air Force issued a contract to Colt for 8,500 AR-15 rifles and 8,500,000 rounds of ammunition.
+- **Non-standard points of view**
+  - The AR-15 is an M16
+    - The AR-15 platform is an extremely broad category covering all AR-15 pattern rifles ever made, including select-fire and semi-automatic version. Many people mistakenly believe that the AR-15 is semi-automatic only, but in fact every AR-15 that Armalite (Fairchild) ever made was select-fire. The semi-automatic versions came much later.
+  - The "AR" in "AR-15" stands for Armalite
+    - Many misinformed people think it stands for "Assault Rifle" which is obviously wrong or "Armalite Rifle." These don't make sense because the AR-7 is a takedown pistol, the AR-17 is a shotgun, and the AR-24 is a pistol.
+    - Eugene Stoner's daughter thought it meant "armalite research" but this feels like a backronym from a person one step removed from Armalite, the Fairchild subsidiary
+    - Jim Sullivan, the best source we have, said it simply meant "Armalite" which is the simplest answer. Occam's razor and the leading primary source agree that "AR" stands for Armalite, but without discovery of official documents from the company we may never be completely certain.
+- **Knowledge Base**
+  - The Black Rifle: M15 Retrospective
+    - A definitive and thoroughly documented history of the M16 rifle.
+  - Report Of The M16 Rifle Review Panel 1 JUN 1968
+    - Report Of The M16 Rifle Review Panel 1 JUN 1968 covered development of the M16 series rifle through the M16, XM16E1 and M16A1. There is some discussion of XM177 series as well. The content of this report provides significant insight into Colts development of the M16 series through the M16A1. There are twelve parts to the report. They are the base report, History of the M16 and eleven appendixes.
+  - The History of the Pelopponesian War
+    - because everyone should read The History of the Pelopponesian War

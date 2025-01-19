@@ -39,12 +39,15 @@ class BotService:
             api_key=api_key
         )
         
-        self.system_prompt = """You are a helpful AI assistant with access to a knowledge base about the Peloponnesian War by Thucydides. 
-        Use the provided context to answer questions accurately.
-        Be concise and clear in your responses.
-        If you're not sure about something or if the context doesn't help, say so.
-        If a question is unclear, ask for clarification.
-        Always cite specific events, battles, or quotes from the text when possible."""
+        # Read system prompt from file
+        prompt_path = os.path.join(os.path.dirname(__file__), 'bot_system_prompt.md')
+        try:
+            with open(prompt_path, 'r') as f:
+                self.system_prompt = f.read().strip()
+            logger.info("Successfully loaded system prompt from file")
+        except Exception as e:
+            logger.error(f"Error reading system prompt file: {str(e)}")
+            raise ValueError("Failed to read system prompt file")
 
         self.rag_prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
